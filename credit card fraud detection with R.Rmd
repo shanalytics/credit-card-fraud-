@@ -1,0 +1,183 @@
+---
+title: "Credit Card Fraud Detection using R"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+# About the Dataset
+
+## Context 
+It is essential for credit card companies to have the capability to detect fraudulent credit card transactions to ensure that customers are not held responsible for payments of items they did not acquire.
+
+## Content
+The dataset contains transactions made by credit cards in September 2013 by European cardholders.
+This dataset presents transactions that occurred in two days, where we have 492 frauds out of 284,807 transactions. The dataset is highly unbalanced, the positive class (frauds) account for 0.172% of all transactions.
+
+## Transaction features
+Our focus will be on the most essential features of a transaction. In essence, a payment card transaction consists of any amount paid to a merchant by a customer at a certain time. The six main features that summarise a transaction therefore are:
+
+1. The transaction ID: A unique identifier for the transaction
+
+2. The date and time: Date and time at which the transaction occurs
+
+3. The customer ID: The identifier for the customer. Each customer has a unique identifier
+
+4. The terminal ID: The identifier for the merchant (or more precisely the terminal). Each terminal has a unique identifier
+
+5. The transaction amount: The amount of the transaction.
+
+6. The fraud label:
+
+ A binary variable,
+  with the value 0
+
+ for a legitimate transaction, 
+  or the value 1
+
+ for a fraudulent transaction.
+ 
+*These features will be referred to as TRANSACTION_ID, TX_DATETIME, CUSTOMER_ID, TERMINAL_ID, TX_AMOUNT, and TX_FRAUD.
+
+The goal of the transaction data simulator will be to generate a table of transactions with these features. 
+
+## Acknowledgements
+The dataset has been collected and analysed during a research collaboration of Worldline and the Machine Learning Group (http://mlg.ulb.ac.be) of ULB (Université Libre de Bruxelles) on big data mining and fraud detection.
+More details on current and past projects on related topics are available on https://www.researchgate.net/project/Fraud-detection-5 and the page of the DefeatFraud project
+
+## References
+
+Andrea Dal Pozzolo, Olivier Caelen, Reid A. Johnson and Gianluca Bontempi. Calibrating Probability with Undersampling for Unbalanced Classification. In Symposium on Computational Intelligence and Data Mining (CIDM), IEEE, 2015
+
+Dal Pozzolo, Andrea; Caelen, Olivier; Le Borgne, Yann-Ael; Waterschoot, Serge; Bontempi, Gianluca. Learned lessons in credit card fraud detection from a practitioner perspective, Expert systems with applications,41,10,4915-4928,2014, Pergamon
+
+Dal Pozzolo, Andrea; Boracchi, Giacomo; Caelen, Olivier; Alippi, Cesare; Bontempi, Gianluca. Credit card fraud detection: a realistic modeling and a novel learning strategy, IEEE transactions on neural networks and learning systems,29,8,3784-3797,2018,IEEE
+
+Dal Pozzolo, Andrea Adaptive Machine learning for credit card fraud detection ULB MLG PhD thesis (supervised by G. Bontempi)
+
+Carcillo, Fabrizio; Dal Pozzolo, Andrea; Le Borgne, Yann-Aël; Caelen, Olivier; Mazzer, Yannis; Bontempi, Gianluca. Scarff: a scalable framework for streaming credit card fraud detection with Spark, Information fusion,41, 182-194,2018,Elsevier
+
+Carcillo, Fabrizio; Le Borgne, Yann-Aël; Caelen, Olivier; Bontempi, Gianluca. Streaming active learning strategies for real-life credit card fraud detection: assessment and visualization, International Journal of Data Science and Analytics, 5,4,285-300,2018,Springer International Publishing
+
+Bertrand Lebichot, Yann-Aël Le Borgne, Liyun He, Frederic Oblé, Gianluca Bontempi Deep-Learning Domain Adaptation Techniques for Credit Cards Fraud Detection, INNSBDDL 2019: Recent Advances in Big Data and Deep Learning, pp 78-88, 2019
+
+Fabrizio Carcillo, Yann-Aël Le Borgne, Olivier Caelen, Frederic Oblé, Gianluca Bontempi Combining Unsupervised and Supervised Learning in Credit Card Fraud Detection Information Sciences, 2019
+
+Yann-Aël Le Borgne, Gianluca Bontempi Reproducible machine Learning for Credit Card Fraud Detection - Practical Handbook
+ 
+Bertrand Lebichot, Gianmarco Paldino, Wissam Siblini, Liyun He, Frederic Oblé, Gianluca Bontempi Incremental learning strategies for credit cards fraud detection, IInternational Journal of Data Science and Analytics
+
+# DATA ANALYSIS PROCESS
+View dataset
+```{r}
+head(creditcard)
+```
+```{r}
+colnames(creditcard)
+```
+```{r}
+is.null(creditcard)
+dim(creditcard)
+```
+```{r}
+#View unique values in the data frame 
+unique(creditcard$Class)
+```
+##### The data is clean and ready to analyse
+
+## Descriptive Analysis
+create a data frame with non fraud values 
+```{r}
+creditcard$Class <- as.character(creditcard$Class)
+is.character(creditcard$Class)
+```
+```{r}
+describe(creditcard)
+#df status returns a table, so it is easy to keep with variables that match certain conditions like:
+#+ Having at least 80% of non-NA values (p_na < 20)
+#+ Having less than 50 unique values (unique <= 50)
+```
+```{r}
+#get the difference between normal and fraudulent transactions
+table(creditcard$Class)
+creditcard %>% count(Class)
+```
+```{r}
+ggplot(creditcard, aes(x = creditcard$Class)) + geom_bar()
+```
+```{r}
+#Step 2 - Analyzing categorical variables
+freq(creditcard$Class)
+#fraudulent transactions add up to 492 which is 17% of the total transactions 
+```
+```{r}
+#Step 3 - Analyzing numerical variables
+plot_num(creditcard)
+#Try to identify high-unbalanced variables
+```
+```{r}
+#Visually check any variable with outliers
+data_prof=profiling_num(creditcard)
+
+data_prof %>% select(variable, variation_coef, range_98)
+#A high value in variation_coef may indictate outliers. range_98 indicates where most of the values are.
+
+```
+## Plotting the data
+
+```{r}
+# Since it is in seconds, change to minute and hour, then do feature selection
+# Change into time delta object and creates a time data class and out of that, convert into minutes and hours.
+
+# convert seconds to hours and add new column
+
+creditcard <- creditcard %>%
+  mutate(hours = creditcard$Time/3600)
+head(creditcard)
+```
+```{r}
+#Legitimate vs Fraudulent transactions 
+ggplot(data = creditcard, 
+                       aes(x = creditcard$hours,
+                           y = creditcard$Amount)) +
+  geom_point(aes(color = creditcard$Class, 
+                 shape = creditcard$Class),
+             size = 3,
+             alpha = 0.8) +
+  scale_color_manual(values = c("darkorange","purple")) +
+  labs(title = "Creditcard transactions",
+       subtitle = "credit card transactions Legitimate vs Fraudulent",
+       x = "Time(hrs)",
+       y = "Amount",
+       color = "Class",
+       shape = "Class") +
+  theme(legend.position = c(0.2, 0.7),
+        plot.title.position = "plot",
+        plot.caption = element_text(hjust = 0, face= "italic"),
+        plot.caption.position = "plot")
+```
+```{r}
+Legit_trans <- filter(creditcard, creditcard$Class == 0)
+print(Legit_trans)
+# create a histogram with 20 bars
+hist(Legit_trans, breaks = 20)
+```
+```{r}
+Fraud_trans <- filter(creditcard, creditcard$Class == 1)
+print(Fraud_trans)
+# create a histogram with 20 bars
+hist(Fraud_trans, breaks = 20)
+```
+```{r}
+creditcard$Class <- as.numeric(creditcard$Class)
+is.numeric(creditcard$Class)
+```
+Positive correlation (coefficient > 0) means that as one variable increases, the other variable tends to increase as well.
+Negative correlation (coefficient < 0) means that as one variable increases, the other variable tends to decrease.
+No correlation (coefficient = 0) means that there is no relationship between the two variables.
+```{r}
+creditcard.cor = cor(creditcard, method = c("spearman"))
+corrplot(creditcard.cor)
+```
+
+
